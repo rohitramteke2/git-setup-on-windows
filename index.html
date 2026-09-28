@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Git & SSH Setup Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#fcfcfa;--bg2:#ffffff;--bg3:#f5f5f0;--bg4:#eeeee8;
+  --bdr:#e0dfd8;--bdr2:#d0cfc6;
+  --t1:#1a1a18;--t2:#5c5c56;--t3:#8a8a82;--t4:#b0b0a8;
+  --accent:#3d6b4f;--accent2:#4a7d5e;--accent-bg:rgba(61,107,79,.06);
+  --mark:#3d6b4f;--mark-bg:rgba(61,107,79,.08);
+  --done:#3d6b4f;--done-bg:rgba(61,107,79,.06);
+  --warn:#8a6d2b;--warn-bg:rgba(138,109,43,.06);
+  --err:#944040;--err-bg:rgba(148,64,64,.06);
+  --code-bg:#f5f4ee;
+  --sidebar-w:240px;
+  --intensity:0;
+  padding-top:env(safe-area-inset-top,0);padding-bottom:env(safe-area-inset-bottom,0);
+}
+html{scroll-behavior:smooth;scroll-padding-top:60px}
+body{
+  background:color-mix(in srgb, #f5efe0 calc(var(--intensity) * 1%), var(--bg));
+  color:var(--t1);font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.75;-webkit-font-smoothing:antialiased;transition:background .4s}
+::selection{background:var(--mark-bg);color:var(--mark)}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:2px}
+a{color:var(--accent2);text-decoration:underline;text-decoration-color:var(--bdr);text-underline-offset:2px;transition:text-decoration-color .2s}
+a:hover{text-decoration-color:var(--accent)}
+code{font-family:'JetBrains Mono',monospace;font-size:.82em;background:var(--code-bg);padding:1px 5px;border-radius:3px;color:var(--t1)}
+
+/* ── Topbar ── */
+.topbar{position:fixed;top:0;left:0;right:0;z-index:200;background:rgba(252,252,250,.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--bdr);height:48px;display:flex;align-items:center;padding:0 20px;gap:12px}
+.topbar-brand{display:flex;align-items:center;gap:7px;font-weight:700;font-size:.82rem;color:var(--t1);white-space:nowrap;flex-shrink:0;letter-spacing:-.01em}
+.topbar-brand svg{color:var(--t3)}
+.topbar-search{flex:1;max-width:280px;margin:0 auto;position:relative}
+.topbar-search input{width:100%;height:30px;background:var(--bg3);border:1px solid var(--bdr);border-radius:6px;padding:0 10px 0 30px;color:var(--t1);font-family:inherit;font-size:.78rem;outline:none;transition:.2s}
+.topbar-search input::placeholder{color:var(--t4)}
+.topbar-search input:focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-bg)}
+.topbar-search svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--t4);pointer-events:none}
+.topbar-search .kbd{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:1px solid var(--bdr);border-radius:3px;padding:0 4px;font-size:.58rem;color:var(--t4);font-family:'JetBrains Mono',monospace;pointer-events:none;background:var(--bg2)}
+.topbar-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+
+/* Intensity control */
+.intensity-wrap{display:flex;align-items:center;gap:6px}
+.intensity-label{font-size:.62rem;color:var(--t4);font-weight:600;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+.intensity-slider{-webkit-appearance:none;width:60px;height:3px;background:var(--bdr);border-radius:2px;outline:none;cursor:pointer}
+.intensity-slider::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--t3);border:2px solid var(--bg2);cursor:pointer;transition:.2s}
+.intensity-slider::-webkit-slider-thumb:hover{background:var(--accent)}
+
+.ibtn{width:30px;height:30px;border-radius:6px;border:1px solid var(--bdr);background:transparent;color:var(--t3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.2s}
+.ibtn:hover{border-color:var(--bdr2);color:var(--t1);background:var(--bg3)}
+
+.pbar{position:absolute;bottom:0;left:0;right:0;height:1.5px;background:var(--bdr)}
+.pfill{height:100%;background:var(--accent);width:0%;transition:width .5s ease}
+
+/* ── Layout ── */
+.layout{display:flex;margin-top:48px;min-height:calc(100vh - 48px)}
+
+/* ── Sidebar ── */
+.sidebar{position:fixed;top:48px;left:0;bottom:0;width:var(--sidebar-w);background:var(--bg);border-right:1px solid var(--bdr);overflow-y:auto;overflow-x:hidden;padding:16px 10px;display:flex;flex-direction:column;gap:1px;z-index:90;transition:width .25s ease,opacity .25s,transform .25s}
+.sidebar::-webkit-scrollbar{width:0}
+.sidebar.collapsed{width:0;padding:0;opacity:0;transform:translateX(-6px);pointer-events:none}
+.slink{display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:5px;font-size:.76rem;font-weight:500;color:var(--t3);cursor:pointer;transition:.15s;border:none;background:none;width:100%;text-align:left;font-family:inherit;white-space:nowrap;overflow:hidden}
+.slink:hover{color:var(--t2);background:var(--bg3)}
+.slink.active{color:var(--accent);background:var(--accent-bg);font-weight:600}
+.slink svg{flex-shrink:0;width:14px;height:14px}
+.sdiv{height:1px;background:var(--bdr);margin:8px 4px}
+.slbl{font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--t4);padding:12px 8px 4px}
+
+/* ── Resizer ── */
+.resizer{position:fixed;top:48px;bottom:0;width:5px;cursor:col-resize;z-index:100;transition:left .25s ease}
+.resizer::before{content:'';position:absolute;top:0;bottom:0;left:2px;width:1px;background:transparent;transition:background .2s}
+.resizer:hover::before{background:var(--accent)}
+.collapse-btn{position:absolute;top:50%;transform:translateY(-50%);width:20px;height:32px;background:var(--bg2);border:1px solid var(--bdr);border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--t4);transition:.2s;z-index:101;left:-10px}
+.collapse-btn:hover{border-color:var(--bdr2);color:var(--accent);background:var(--bg3)}
+.collapse-btn svg{transition:transform .25s}
+.collapse-btn.flipped svg{transform:rotate(180deg)}
+
+/* ── Main ── */
+.main{flex:1;min-width:0;padding:0 40px 80px;margin-left:var(--sidebar-w);transition:margin-left .25s ease;max-width:780px}
+.main.expanded{margin-left:0}
+
+/* ── Hero ── */
+.hero{padding:32px 0 20px;border-bottom:1px solid var(--bdr);margin-bottom:4px}
+.hero h1{font-size:1.6rem;font-weight:800;letter-spacing:-.03em;line-height:1.25;margin-bottom:6px;color:var(--t1)}
+.hero-desc{color:var(--t2);font-size:.88rem;margin-bottom:16px;max-width:500px}
+.hero-meta{display:flex;gap:16px;flex-wrap:wrap}
+.hero-meta-item{display:flex;align-items:center;gap:5px;font-size:.74rem;color:var(--t3)}
+.hero-meta-item strong{font-weight:700;color:var(--t1)}
+.hero-meta-item svg{width:13px;height:13px;color:var(--t4)}
+.dot{width:3px;height:3px;border-radius:50%;background:var(--bdr2)}
+
+/* ── Sections ── */
+.sec{scroll-margin-top:60px}
+.sec-head{display:flex;align-items:center;gap:8px;margin:28px 0 10px;padding-bottom:8px;border-bottom:1px solid var(--bdr)}
+.sec-head h2{font-size:.96rem;font-weight:700;letter-spacing:-.01em;color:var(--t1)}
+.sec-head svg{width:15px;height:15px;color:var(--t3);flex-shrink:0}
+.sec-tag{margin-left:auto;font-size:.56rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--t4);border:1px solid var(--bdr);padding:2px 7px;border-radius:3px}
+
+/* ── Step Cards ── */
+.stp{border:1px solid var(--bdr);border-radius:8px;margin:6px 0;transition:.2s;background:var(--bg2)}
+.stp:hover{border-color:var(--bdr2);box-shadow:0 1px 6px rgba(0,0,0,.04)}
+.stp.done{border-color:color-mix(in srgb, var(--done) 25%, var(--bdr));background:var(--done-bg)}
+.stp-in{padding:14px 16px}
+.stp-top{display:flex;align-items:center;gap:10px}
+.stp-n{width:24px;height:24px;border-radius:50%;background:var(--bg4);color:var(--t2);font-weight:700;font-size:.7rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:.2s}
+.stp.done .stp-n{background:var(--done);color:#fff}
+.stp-t{font-size:.88rem;font-weight:600;color:var(--t1)}
+.stp-chk{margin-left:auto;width:18px;height:18px;border-radius:50%;border:1.5px solid var(--bdr);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s;flex-shrink:0;background:transparent;color:transparent}
+.stp-chk:hover{border-color:var(--accent)}
+.stp.done .stp-chk{border-color:var(--done);background:var(--done);color:#fff}
+.stp-body{padding:8px 0 0 34px}
+.stp-body p{color:var(--t2);margin-bottom:6px;font-size:.84rem}
+.stp-body p:last-child{margin-bottom:0}
+.stp-body strong{color:var(--t1);font-weight:600}
+
+/* ── Code ── */
+.cw{margin:6px 0;border-radius:6px;overflow:hidden;border:1px solid var(--bdr)}
+.ch{display:flex;align-items:center;justify-content:space-between;background:var(--bg3);padding:4px 10px}
+.ch-l{font-size:.6rem;font-weight:600;color:var(--t4);text-transform:uppercase;letter-spacing:.05em}
+.cpb{background:transparent;border:1px solid var(--bdr);color:var(--t3);font-family:'Inter',sans-serif;font-size:.6rem;font-weight:600;padding:2px 7px;border-radius:4px;cursor:pointer;transition:.15s}
+.cpb:hover{border-color:var(--bdr2);color:var(--t1)}
+.cpb.ok{border-color:var(--done);color:var(--done)}
+pre{background:var(--code-bg);padding:10px 12px;overflow-x:auto;margin:0;line-height:1.75}
+pre code{font-family:'JetBrains Mono',monospace;font-size:.76rem;color:var(--t1);background:none;padding:0}
+.cm{color:var(--t4)}.str{color:var(--accent)}
+
+/* ── File Tree ── */
+.ft{background:var(--code-bg);border:1px solid var(--bdr);border-radius:6px;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:.74rem;line-height:2;margin:6px 0}
+.ftf{color:var(--accent);font-weight:600}.ftd{color:var(--t4)}
+
+/* ── Alerts ── */
+.al{border-radius:6px;padding:8px 10px;margin:6px 0;font-size:.8rem;display:flex;align-items:flex-start;gap:7px;line-height:1.55;color:var(--t2)}
+.al svg{flex-shrink:0;margin-top:2px;width:13px;height:13px}
+.al strong{color:var(--t1)}
+.al-i{background:var(--accent-bg);border-left:2px solid var(--accent)}.al-i svg{color:var(--accent)}
+.al-w{background:var(--warn-bg);border-left:2px solid var(--warn)}.al-w svg{color:var(--warn)}
+.al-d{background:var(--err-bg);border-left:2px solid var(--err)}.al-d svg{color:var(--err)}
+.al-s{background:var(--done-bg);border-left:2px solid var(--done)}.al-s svg{color:var(--done)}
+
+/* ── Prompt Cards ── */
+.pc{background:var(--bg2);border:1px solid var(--bdr);border-radius:8px;padding:12px 14px;margin:5px 0;cursor:pointer;transition:.15s;display:flex;align-items:flex-start;gap:10px}
+.pc:hover{border-color:var(--bdr2);box-shadow:0 1px 4px rgba(0,0,0,.04)}
+.pc.cpd{border-color:var(--done)}
+.pcl{font-size:.6rem;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+.pc.cpd .pcl{color:var(--done)}
+.pct{font-family:'JetBrains Mono',monospace;font-size:.74rem;color:var(--t2);word-break:break-word;line-height:1.6}
+.pcc{color:var(--t4);flex-shrink:0;transition:.15s;align-self:center;margin-left:auto}
+.pc:hover .pcc{color:var(--t2)}.pc.cpd .pcc{color:var(--done)}
+.pc-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:6px}
+
+/* ── Collapsible ── */
+.colt{width:100%;background:var(--bg2);border:1px solid var(--bdr);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:7px;cursor:pointer;transition:.15s;color:var(--t1);font-family:inherit;font-size:.84rem;font-weight:600;margin-top:6px}
+.colt:hover{border-color:var(--bdr2);background:var(--bg3)}
+.colt svg:first-child{flex-shrink:0;color:var(--t4);width:14px;height:14px}
+.colt .arr{margin-left:auto;transition:transform .25s;color:var(--t4);width:12px;height:12px}
+.colt.open .arr{transform:rotate(180deg)}
+.colb{max-height:0;overflow:hidden;transition:max-height .35s ease}
+.colb.open{max-height:4000px}
+
+/* ── No Results ── */
+.nores{text-align:center;padding:40px 20px;color:var(--t4);display:none}
+
+/* ── Back to Top ── */
+.btt{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom,0));right:16px;width:32px;height:32px;border-radius:6px;background:var(--bg2);color:var(--t3);border:1px solid var(--bdr);cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transform:translateY(10px);transition:.2s;z-index:50}
+.btt.vis{opacity:1;transform:translateY(0)}.btt:hover{border-color:var(--bdr2);color:var(--t1)}
+
+/* ── Footer ── */
+.foot{text-align:center;padding:28px 0 0;color:var(--t4);font-size:.72rem;border-top:1px solid var(--bdr);margin-top:32px}
+
+/* ── Animations ── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.ani{opacity:0;transform:translateY(8px)}.ani.v{animation:fadeUp .3s ease forwards}
+
+/* ── Responsive ── */
+@media(max-width:860px){
+  .sidebar,.resizer{display:none!important}
+  .main{margin-left:0!important;padding:0 16px 60px}
+  .hero-meta{gap:10px}
+  .topbar-search .kbd{display:none}
+  .intensity-label{display:none}
+  .stp-body{padding-left:0;padding-top:6px}
+}
+</style>
+</head>
+<body>
+
+<nav class="topbar">
+  <div class="topbar-brand">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+    <span>Git Setup Guide</span>
+  </div>
+  <div class="topbar-search">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input type="text" id="searchInput" placeholder="Search steps..." autocomplete="off">
+    <span class="kbd">Ctrl K</span>
+  </div>
+  <div class="topbar-right">
+    <div class="intensity-wrap">
+      <span class="intensity-label">Warmth</span>
+      <input type="range" class="intensity-slider" id="intensitySlider" min="0" max="100" value="0">
+    </div>
+    <button class="ibtn" id="resetBtn" title="Reset Progress"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg></button>
+  </div>
+  <div class="pbar"><div class="pfill" id="pbar"></div></div>
+</nav>
+
+<div class="layout">
+
+<aside class="sidebar" id="sidebar">
+  <div class="slbl">Getting Started</div>
+  <button class="slink" data-target="sec-install" onclick="goTo('sec-install')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Install</button>
+  <button class="slink" data-target="sec-config" onclick="goTo('sec-config')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83"/></svg>Configure</button>
+  <button class="slink" data-target="sec-ssh" onclick="goTo('sec-ssh')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>SSH Keys</button>
+  <button class="slink" data-target="sec-github" onclick="goTo('sec-github')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65S8.93 17.38 9 18v4"/></svg>Add to GitHub</button>
+  <button class="slink" data-target="sec-test" onclick="goTo('sec-test')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>Test & Use</button>
+  <div class="sdiv"></div>
+  <div class="slbl">Advanced</div>
+  <button class="slink" data-target="sec-multi" onclick="goTo('sec-multi')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>Multi Account</button>
+  <button class="slink" data-target="sec-trouble" onclick="goTo('sec-trouble')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>Troubleshoot</button>
+  <button class="slink" data-target="sec-prompts" onclick="goTo('sec-prompts')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Prompts</button>
+</aside>
+
+<div class="resizer" id="resizer">
+  <button class="collapse-btn" id="collapseBtn" title="Toggle Sidebar">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+  </button>
+</div>
+
+<div class="main" id="mainContent">
+
+<div class="hero ani">
+  <h1>Git & SSH Setup Guide</h1>
+  <p class="hero-desc">Complete walkthrough for Windows PowerShell. From installing Git to pushing your first commit.</p>
+  <div class="hero-meta">
+    <div class="hero-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg><strong id="hT">22</strong> steps</div>
+    <div class="dot"></div>
+    <div class="hero-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><strong id="hD">0</strong> done</div>
+    <div class="dot"></div>
+    <div class="hero-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>~15 min</div>
+  </div>
+</div>
+
+<div class="tabs ani" style="display:flex;gap:2px;background:var(--bg3);border:1px solid var(--bdr);border-radius:6px;padding:2px;margin:16px 0 20px">
+  <button class="tbtn active" data-tab="all" onclick="setTab('all')" style="flex:1;padding:6px;border:none;border-radius:5px;background:transparent;color:var(--t3);font-family:inherit;font-size:.74rem;font-weight:600;cursor:pointer;transition:.15s;white-space:nowrap">All</button>
+  <button class="tbtn" data-tab="single" onclick="setTab('single')" style="flex:1;padding:6px;border:none;border-radius:5px;background:transparent;color:var(--t3);font-family:inherit;font-size:.74rem;font-weight:600;cursor:pointer;transition:.15s">Single</button>
+  <button class="tbtn" data-tab="multi" onclick="setTab('multi')" style="flex:1;padding:6px;border:none;border-radius:5px;background:transparent;color:var(--t3);font-family:inherit;font-size:.74rem;font-weight:600;cursor:pointer;transition:.15s">Multi</button>
+  <button class="tbtn" data-tab="prompts" onclick="setTab('prompts')" style="flex:1;padding:6px;border:none;border-radius:5px;background:transparent;color:var(--t3);font-family:inherit;font-size:.74rem;font-weight:600;cursor:pointer;transition:.15s">Prompts</button>
+</div>
+
+<div id="nores" class="nores"><p>No steps match your search.</p></div>
+
+<!-- ==== INSTALL ==== -->
+<div class="sec" id="sec-install" data-s="all single">
+<div class="sec-head ani"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><h2>Install Git</h2><span class="sec-tag">All Users</span></div>
+<div class="stp ani" data-step="1"><div class="stp-in"><div class="stp-top"><div class="stp-n">1</div><div class="stp-t">Install Git on Windows</div><button class="stp-chk" onclick="tgl(this)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></button></div><div class="stp-body"><p>Open PowerShell and install with Windows Package Manager:</p><div class="cw"><div class="ch"><span class="ch-l">PowerShell</span><button class="cpb" onclick="cp(this)">Copy</button></div><pre><code>winget install --id Git.Git -e --source winget</code></pre></div><p>Or download from <a href="https://git-scm.com" target="_blank">git-scm.com</a></p><div class="al al-i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><span>Close and reopen PowerShell after install so <code>git</code> is in your PATH.</span></div></div></div></div>
+<div class="stp ani" data-step="2"><div class="stp-in"><div class="stp-top"><div class="stp-n">2</div><div class="stp-t">Verify Git Installation</div><button class="stp-chk" onclick="tgl(this)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></button></div><div class="stp-body"><div class="cw"><div class="ch"><span class="ch-l">PowerShell</span><button class="cpb" onclick="cp(this)">Copy</button></div><pre><code>git --version</code></pre></div><div class="al al-s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span>Expected: <code>git version 2.x.x.windows.x</code></span></div></div></div></div>
+<div class="stp ani" data-step="3"><div class="stp-in"><div class="stp-top"><div class="stp-n">3</div><div class="stp-t">Verify SSH Is Available</div><button class="stp-chk" onclick="tgl(this)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></button></div><div class="stp-body"><div class="cw"><div class="ch"><span class="ch-l">PowerShell</span><button class="cpb" onclick="cp(this)">Copy</button></div><pre><code>ssh -V</code></pre></div><div class="al al-s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span>Expected: <code>OpenSSH_for_Windows_9.x</code></span></div></div></div></div>
+</div>
+
+<!-- ==== CONFIG ==== -->
+<div class="sec" id="sec-config" data-s="all single">
+<div class="sec-head ani"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83"/></svg><h2>Configure Git</h2><span class="sec-tag">All Users</span></div>
+<div class="stp ani" data-step="4"><div class="stp-in"><div class="stp-top"><div class="stp-n">4</div><div class="stp-t">Set Your Identity</div><button class="stp-chk" onclick="tgl(this)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></button></div><div class="stp-body"><div class="cw"><div class="ch"><span class="ch-l">PowerShell</span><button class="cpb" onclick="cp(this)">Copy</button></div><pre><code>git config --global user.name <span class="str">"Your Name"</span>
+git config --global user.email <span class="str">"your.email@example.com"</span></code></pre></div><div class="al al-i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><span>Use the same email as your GitHub profile.</span></div></div></div></div>
+<div class="stp ani" data-step="5"><div class="stp-in"><div class="stp-top"><div class="stp-n">5</div><div class="stp-t">Set Default Branch Name</div><button class="stp-chk" onclick="tgl(this)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></button></div><div class="stp-body"><div class="cw"><div class="ch"><span class="ch-l">PowerShell</span><button class="cpb" onclick="cp(this)">Copy</button></div><pre><code>git config --global init.defaultBranch main</code></pre></div></div></div></div>
+<div class="stp ani" data-step="6"><div class="stp-in"><div class="stp-top"><div class="stp-n">6</div><div class="stp-t">Set Default Editor (Optional)</div><button class="stp-chk" onclick="tgl(this)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></button></div><div class="stp-body"><div class="cw"><div class="ch"><span class="ch-l">PowerShell</span><button class="cpb" onclick="cp(this)">Copy</button></div><pre><code><span class="cm"># VS Code</span>
+git config --global core.editor <span class="str">"code --wait"</span>
+
+<span class="cm"># Notepad</span>
+git config --global core.editor <span class="str">"notepad"</span></code></pre></div></div></div></div>
+</div>
+
+<!-- ==== SSH ==== -->
+<div class="sec" id="sec-ssh" data-s="all single">
+<div class="sec-head ani"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><h2>SSH Key Setup</h2><span class="sec-tag">Single</span></div>
+<div class="stp ani" data-step="7"><div class="stp-in"><div class="stp-top"><div class="stp-n">7</div><div class="stp-t">Create .ssh Directory</div><button class="stp-chk" onclick="tgl(this)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></button></div><div class="stp-body"><div class="cw"><div class="ch"><span class="ch-l">PowerShell</span><button class="cpb" onclick="cp(this)">Copy</button></div><pre><code>if (!(Test-Path <span class="str">"$env:USERPROFILE\.ssh"</span>)) {
+    New-Item -ItemType Directory -Path <span class="str">"$env:USERPROFILE\.ssh"</span>
+}</code></pre></div></div></div></div>
+<div class="stp ani" data-step="8"><div class="stp-in"><div class="stp-top"><div class="stp-n">8</div><div class="stp-t">Generate SSH Key</div><button class="stp-chk" onclick="tgl(this)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></button></div><div class="stp-body"><div class="cw"><div class="ch"><span class="ch-l">PowerShell</span><button class="cpb" onclick="cp(this)">Copy</button></div><pre><code>ssh-keygen -t ed25519 -C <span class="str">"your.email@example.com"</span> -f <span class="str">"$env:USERPROFILE\.ssh\my_github_key"</span></code></pre></div><p>Enter a passphrase when prompted or press Enter to skip.</p><div class="ft"><span class="ftf">C:\Users\YourName\.ssh\</span><br>├── my_github_key <span class="ftd">  private key</span><br>└── my_github_key.pub <span class="ftd">  public key</span></div></div></div></div>
+<div class="stp ani" data-step="9"><div class="stp-in"><div class="stp-top"><div class="stp-n">9</div><div class="stp-t">Start SSH Agent</div><button class="stp-chk" onclick="tgl(this)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></button></div><div class="stp-body"><p>As <strong>Administrator</strong>:</p><div class="cw"><div class="ch"><span class="ch-l">Admin</span><button class="cpb" onclick="cp(this)">Copy</button></div><pre><code>Get-Service ssh-agent | Set-Service -StartupType Automatic
+Start-Service ssh-agent</code></pre></div><p>Then normally:</p><div class="cw"><div class="ch"><span class="ch-l">PowerShell</span><button class="cpb" onclick="cp(this)">Copy</button></div><pre><code>ssh-add <span class="str">"$env:USERPROFILE\.ssh\my_github_key"</span>
+ssh-add -l</code></pre></div></div></div></div>
+<div class="stp ani" data-step="10"><div class="stp-in"><div class="stp-top"><div class="stp-n">10</div><div class="stp-t">Create SSH Config</div><button class="stp-chk" onclick="tgl(this)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></button></div><div class="stp-body"><div class="cw"><div class="ch"><span class="ch-l">PowerShell</span><button class="cpb" onclick="cp(this)">Copy</button></div><pre><code>New-Item -ItemType File -Path <span class="str">"$env:USERPROFILE\.ssh\config"</span> -Force
+notepad <span class="str">"$env:USERPROFILE\.ssh\config"</span></code></pre></div><p>Paste this and save:</p><div class="cw"><div class="ch"><span class="ch-l">~/.ssh/config</span><button class="cpb" onclick="cp(this)">Copy</button></div><pre><code>Host github.com
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/my_github_key
+    AddKeysToAgent yes</code></pre></div></div></div></div>
+</div>
+
+<!-- ==== GITHUB ==== -->
+<div class="sec" id="sec-github" data-s="all single">
+<div class="sec-head ani"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65S8.93 17.38 9 18v4"/></svg><h2>Add Key to GitHub</h2><span class="sec-tag">All Users</span></div>
+<div class="stp ani" data-step="11"><div class="stp-in"><div class="stp-top"><div class="stp-n">11</div><div class="stp-t">Copy Public Key</div><button class="stp-chk" onclick="tgl(this)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></button></div><div class="stp-body"><div class="cw"><div class="ch"><span class="ch-l">PowerShell</span><button class="cpb" onclick="cp(this)">Copy</button></div><pre><code>Get-Content <span class="str">"$env:USERPROFILE\.ssh\my_github_key.pub"</span> | Set-Clipboard</code></pre></div></div></div></div>
+<div class="stp ani" data-step="12"><div class="stp-in"><div class="stp-top"><div class="stp-n">12</div><div class="stp-t">Add Key on GitHub</div><button class="stp-chk" onclick="tgl(this)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></button></div><div class="stp-body"><p><a href="https://github.com/settings/keys" target="_blank">github.com/settings/keys</a> > New SSH key > paste your key > Add SSH key</p><div class="al al-d"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span><strong>One SSH key = one GitHub account.</strong> Same key on two accounts causes errors.</span></div></div></div></div>
+</div>
+
+<!-- ==== TEST ==== -->
+<div class="sec" id="sec-test" data-s="all single">
+<div class="sec-head ani"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg><h2>Test and Use</h2><span class="sec-tag">All Users</span></div>
+<div class="stp ani" data-step="13"><div class="stp-in"><div class="stp-top"><div class="stp-n">13</div><div class="stp-t">Test Connection</div><button class="stp-chk" onclick="tgl(this)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></button></div><div class="stp-body"><div class="cw"><div class="ch"><span class="ch-l">PowerShell</span><button class="cpb" onclick="cp(this)">Copy</button></div><pre><code>ssh -T git@github.com</code></pre></div><div class="al al-s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span>Expected: <code>Hi username! You've successfully authenticated...</code></span></div></div></div></div>
+<div class="stp ani" data-step="14"><div class="stp-in"><div class="stp-top"><div class="stp-n">14</div><div class="stp-t">Clone a Repo</div><button class="stp-chk" onclick="tgl(this)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></button></div><div class="stp-body"><div class="cw"><div class="ch"><span class="ch-l">PowerShell</span><button class="cpb" onclick="cp(this)">Copy</button></div><pre><code>git clone git@github.com:yourusername/your-repo.git</code></pre></div></div></div></div>
+<div class="stp ani" data-step="15"><div class="stp-in"><div class="stp-top"><div class="stp-n">15</div><div class="stp-t">Create a New Project</div><button class="stp-chk" onclick="tgl(this)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></button></div><div class="stp-body"><div class="cw"><div class="ch"><span class="ch-l">PowerShell</span><button class="cpb" onclick="cp(this)">Copy</button></div><pre><code>mkdir my-project
+cd my-project
+git init
+git remote add origin git@github.com:user/repo.git
+git add .
+git commit -m <span class="str">"first commit"</span>
+git push -u origin main</code></pre></div></div></div></div>
+</div>
+
+<!-- ==== MULTI ==== -->
+<div class="sec" id="sec-multi" data-s="all multi">
+<div class="sec-head ani"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg><h2>Multiple Accounts</h2><span class="sec-tag">Multi</span></div>
+<p class="ani" style="color:var(--t2);margin-bottom:10px;font-size:.84rem">Each GitHub account needs its own SSH key and host alias.</p>
+<div class="stp ani" data-step="16"><div class="stp-in"><div class="stp-top"><div class="stp-n">16</div><div class="stp-t">Generate Separate Keys</div><button class="stp-chk" onclick="tgl(this)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></button></div><div class="stp-body"><div class="cw"><div class="ch"><span class="ch-l">PowerShell</span><button class="cpb" onclick="cp(this)">Copy</button></div><pre><code><span class="cm"># Personal</span>
+ssh-keygen -t ed25519 -C <span class="str">"personal@email.com"</span> -f <span class="str">"$env:USERPROFILE\.ssh\github_personal"</span>
+
+<span class="cm"># Work</span>
+ssh-keygen -t ed25519 -C <span class="str">"work@company.com"</span> -f <span class="str">"$env:USERPROFILE\.ssh\github_work"</span></code></pre></div></div></div></div>
+<div class="stp ani" data-step="17"><div class="stp-in"><div class="stp-top"><div class="stp-n">17</div><div class="stp-t">Add Both Keys</div><button class="stp-chk" onclick="tgl(this)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></button></div><div class="stp-body"><div class="cw"><div class="ch"><span class="ch-l">PowerShell</span><button class="cpb" onclick="cp(this)">Copy</button></div><pre><code>ssh-add <span class="str">"$env:USERPROFILE\.ssh\github_personal"</span>
+ssh-add <span class="str">"$env:USERPROFILE\.ssh\github_work"</span></code></pre></div></div></div></div>
+<div class="stp ani" data-step="18"><div class="stp-in"><div class="stp-top"><div class="stp-n">18</div><div class="stp-t">SSH Config with Aliases</div><button class="stp-chk" onclick="tgl(this)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></button></div><div class="stp-body"><div class="cw"><div class="ch"><span class="ch-l">~/.ssh/config</span><button class="cpb" onclick="cp(this)">Copy</button></div><pre><code><span class="cm"># Personal</span>
+Host github.com-personal
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/github_personal
+    AddKeysToAgent yes
+
+<span class="cm"># Work</span>
+Host github.com-work
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/github_work
+    AddKeysToAgent yes</code></pre></div></div></div></div>
+<div class="stp ani" data-step="19"><div class="stp-in"><div class="stp-top"><div class="stp-n">19</div><div class="stp-t">Add Keys to Correct Accounts</div><button class="stp-chk" onclick="tgl(this)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></button></div><div class="stp-body"><div class="cw"><div class="ch"><span class="ch-l">PowerShell</span><button class="cpb" onclick="cp(this)">Copy</button></div><pre><code>Get-Content <span class="str">"$env:USERPROFILE\.ssh\github_personal.pub"</span> | Set-Clipboard
+<span class="cm"># Add to personal GitHub, then:</span>
+Get-Content <span class="str">"$env:USERPROFILE\.ssh\github_work.pub"</span> | Set-Clipboard
+<span class="cm"># Add to work GitHub</span></code></pre></div></div></div></div>
+<div class="stp ani" data-step="20"><div class="stp-in"><div class="stp-top"><div class="stp-n">20</div><div class="stp-t">Test Both</div><button class="stp-chk" onclick="tgl(this)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></button></div><div class="stp-body"><div class="cw"><div class="ch"><span class="ch-l">PowerShell</span><button class="cpb" onclick="cp(this)">Copy</button></div><pre><code>ssh -T git@github.com-personal
+ssh -T git@github.com-work</code></pre></div></div></div></div>
+<div class="stp ani" data-step="21"><div class="stp-in"><div class="stp-top"><div class="stp-n">21</div><div class="stp-t">Clone with Alias</div><button class="stp-chk" onclick="tgl(this)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></button></div><div class="stp-body"><div class="cw"><div class="ch"><span class="ch-l">PowerShell</span><button class="cpb" onclick="cp(this)">Copy</button></div><pre><code>git clone git@github.com-personal:user/repo.git
+git clone git@github.com-work:org/repo.git</code></pre></div></div></div></div>
+<div class="stp ani" data-step="22"><div class="stp-in"><div class="stp-top"><div class="stp-n">22</div><div class="stp-t">Per-Repo Identity</div><button class="stp-chk" onclick="tgl(this)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></button></div><div class="stp-body"><div class="cw"><div class="ch"><span class="ch-l">PowerShell</span><button class="cpb" onclick="cp(this)">Copy</button></div><pre><code>cd work-repo
+git config user.name <span class="str">"Work Name"</span>
+git config user.email <span class="str">"work@company.com"</span></code></pre></div><button class="colt" onclick="tglC(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>Auto-switch identity per folder<svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></button><div class="colb"><div style="padding:4px 0 0"><div class="cw"><div class="ch"><span class="ch-l">.gitconfig</span><button class="cpb" onclick="cp(this)">Copy</button></div><pre><code>[user]
+    name = Personal Name
+    email = personal@email.com
+
+[includeIf "gitdir:F:/Work/"]
+    path = ~/.gitconfig-work</code></pre></div><div class="cw"><div class="ch"><span class="ch-l">.gitconfig-work</span><button class="cpb" onclick="cp(this)">Copy</button></div><pre><code>[user]
+    name = Work Name
+    email = work@company.com</code></pre></div></div></div></div></div></div>
+</div>
+
+<!-- ==== TROUBLESHOOT ==== -->
+<div class="sec" id="sec-trouble" data-s="all single multi">
+<div class="sec-head ani"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg><h2>Troubleshooting</h2></div>
+<button class="colt ani" onclick="tglC(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>"Repository not found"<svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></button>
+<div class="colb"><div style="padding:4px 0 0"><div class="cw"><div class="ch"><span class="ch-l">PowerShell</span><button class="cpb" onclick="cp(this)">Copy</button></div><pre><code>ssh -vT git@github.com
+ssh-add -D
+ssh-add <span class="str">"$env:USERPROFILE\.ssh\my_github_key"</span></code></pre></div></div></div>
+<button class="colt ani" onclick="tglC(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>"Permission denied"<svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></button>
+<div class="colb"><div style="padding:4px 0 0"><div class="cw"><div class="ch"><span class="ch-l">PowerShell</span><button class="cpb" onclick="cp(this)">Copy</button></div><pre><code>Get-Service ssh-agent
+ssh-add -l
+ssh-keygen -lf <span class="str">"$env:USERPROFILE\.ssh\my_github_key.pub"</span></code></pre></div></div></div>
+<button class="colt ani" onclick="tglC(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>"Could not open agent"<svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></button>
+<div class="colb"><div style="padding:4px 0 0"><div class="cw"><div class="ch"><span class="ch-l">Admin</span><button class="cpb" onclick="cp(this)">Copy</button></div><pre><code>Get-Service ssh-agent | Set-Service -StartupType Automatic
+Start-Service ssh-agent</code></pre></div></div></div>
+</div>
+
+<!-- ==== PROMPTS ==== -->
+<div class="sec" id="sec-prompts" data-s="all prompts">
+<div class="sec-head ani"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><h2>Claude Prompts</h2></div>
+<p class="ani" style="color:var(--t2);margin-bottom:10px;font-size:.84rem">Click to copy. Paste into Claude Code or Chat.</p>
+<div class="pc ani" onclick="cpP(this)"><div class="pc-dot" style="background:var(--accent)"></div><div class="pcb"><div class="pcl">Generate SSH Key</div><div class="pct">Generate an ed25519 SSH key for my GitHub with email "me@email.com", save as "github_personal". Show agent add and test. Windows PowerShell.</div></div><svg class="pcc" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></div>
+<div class="pc ani" onclick="cpP(this)"><div class="pc-dot" style="background:var(--warn)"></div><div class="pcb"><div class="pcl">Multi-Account Setup</div><div class="pct">Two GitHub accounts: personal and work. Generate SSH keys for both, SSH config with host aliases, test each. Windows PowerShell.</div></div><svg class="pcc" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></div>
+<div class="pc ani" onclick="cpP(this)"><div class="pc-dot" style="background:var(--err)"></div><div class="pcb"><div class="pcl">Debug SSH Issues</div><div class="pct">"Repository not found" when cloning via SSH but "ssh -T" works. Multiple keys loaded. Debug and fix. Windows PowerShell.</div></div><svg class="pcc" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></div>
+<div class="pc ani" onclick="cpP(this)"><div class="pc-dot" style="background:var(--accent)"></div><div class="pcb"><div class="pcl">Auto-Switch Identity</div><div class="pct">Set up .gitconfig with includeIf to auto-use work identity for repos in "F:\Work\" and personal for everything else.</div></div><svg class="pcc" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></div>
+<div class="pc ani" onclick="cpP(this)"><div class="pc-dot" style="background:var(--warn)"></div><div class="pcb"><div class="pcl">Full Setup Script</div><div class="pct">Write a complete interactive PowerShell script: install Git, config, SSH key, agent, config file. Prompt for name/email.</div></div><svg class="pcc" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></div>
+<div class="pc ani" onclick="cpP(this)"><div class="pc-dot" style="background:var(--t4)"></div><div class="pcb"><div class="pcl">Security Audit</div><div class="pct">Audit SSH setup: key algorithms, permissions, unused keys, config best practices. Windows PowerShell.</div></div><svg class="pcc" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></div>
+</div>
+
+<!-- ==== QUICK REF ==== -->
+<div class="sec" id="sec-ref" data-s="all">
+<div class="sec-head ani"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg><h2>Quick Reference</h2></div>
+<div class="cw ani"><div class="ch"><span class="ch-l">Daily Commands</span><button class="cpb" onclick="cp(this)">Copy</button></div><pre><code><span class="cm"># Loaded keys</span>
+ssh-add -l
+
+<span class="cm"># Test</span>
+ssh -T git@github.com
+
+<span class="cm"># Identity</span>
+git config user.name
+git config user.email
+
+<span class="cm"># Remote</span>
+git remote -v
+
+<span class="cm"># Debug</span>
+ssh -vT git@github.com
+
+<span class="cm"># Clear keys</span>
+ssh-add -D</code></pre></div>
+</div>
+
+<div class="foot">Git Setup Guide &middot; <a href="https://docs.github.com/en/authentication" target="_blank">GitHub Docs</a> &middot; <a href="https://git-scm.com/doc" target="_blank">Git Docs</a></div>
+</div>
+</div>
+
+<button class="btt" id="btt" onclick="window.scrollTo({top:0})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg></button>
+
+<script>
+const SK='gsg3-p';let done=new Set(),sidebarW=240,collapsed=false;
+const sidebar=document.getElementById('sidebar'),resizer=document.getElementById('resizer'),colBtn=document.getElementById('collapseBtn'),main=document.getElementById('mainContent');
+
+(function(){
+  try{const s=localStorage.getItem(SK);if(s)done=new Set(JSON.parse(s))}catch(e){}
+  try{const w=localStorage.getItem('gsg3-sw');if(w)sidebarW=parseInt(w)}catch(e){}
+  try{const c=localStorage.getItem('gsg3-sc');if(c==='1')collapsed=true}catch(e){}
+  try{const i=localStorage.getItem('gsg3-int');if(i){document.getElementById('intensitySlider').value=i;document.documentElement.style.setProperty('--intensity',i)}}catch(e){}
+  restoreUI();upProg();applySidebar();setupObs();setupScroll();setupSpy();
+  document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();document.getElementById('searchInput').focus()}});
+  document.getElementById('searchInput').addEventListener('input',doSearch);
+})();
+
+// Intensity
+document.getElementById('intensitySlider').addEventListener('input',function(){
+  document.documentElement.style.setProperty('--intensity',this.value);
+  try{localStorage.setItem('gsg3-int',this.value)}catch(e){}
+});
+
+// Resize
+let dragging=false;
+resizer.addEventListener('mousedown',e=>{if(colBtn.contains(e.target))return;dragging=true;document.body.style.cursor='col-resize';document.body.style.userSelect='none';e.preventDefault()});
+document.addEventListener('mousemove',e=>{if(!dragging||collapsed)return;sidebarW=Math.max(180,Math.min(360,e.clientX));applySidebar()});
+document.addEventListener('mouseup',()=>{if(dragging){dragging=false;document.body.style.cursor='';document.body.style.userSelect='';try{localStorage.setItem('gsg3-sw',sidebarW)}catch(e){}}});
+
+// Collapse
+colBtn.addEventListener('click',e=>{e.stopPropagation();collapsed=!collapsed;try{localStorage.setItem('gsg3-sc',collapsed?'1':'0')}catch(e){}applySidebar()});
+function applySidebar(){
+  if(collapsed){sidebar.classList.add('collapsed');main.classList.add('expanded');main.style.marginLeft='0';resizer.style.left='0px';colBtn.classList.add('flipped')}
+  else{sidebar.classList.remove('collapsed');main.classList.remove('expanded');sidebar.style.width=sidebarW+'px';main.style.marginLeft=sidebarW+'px';resizer.style.left=sidebarW+'px';colBtn.classList.remove('flipped');document.documentElement.style.setProperty('--sidebar-w',sidebarW+'px')}
+}
+
+// Tabs
+function setTab(tab){
+  document.querySelectorAll('.tbtn').forEach(b=>{b.classList.toggle('active',b.dataset.tab===tab);if(b.classList.contains('active')){b.style.background='var(--t1)';b.style.color='var(--bg2)'}else{b.style.background='transparent';b.style.color='var(--t3)'}});
+  document.querySelectorAll('.sec').forEach(s=>{const ss=s.dataset.s;if(!ss)return;s.style.display=ss.split(' ').includes(tab)?'':'none'});
+}
+// Init active tab style
+document.querySelector('.tbtn.active').style.background='var(--t1)';document.querySelector('.tbtn.active').style.color='var(--bg2)';
+
+// Reset
+document.getElementById('resetBtn').onclick=()=>{if(!confirm('Reset progress?'))return;done.clear();try{localStorage.removeItem(SK)}catch(e){}document.querySelectorAll('.stp').forEach(c=>c.classList.remove('done'));upProg()};
+
+function tgl(btn){const c=btn.closest('.stp'),s=c.dataset.step;if(done.has(s)){done.delete(s);c.classList.remove('done')}else{done.add(s);c.classList.add('done')}try{localStorage.setItem(SK,JSON.stringify([...done]))}catch(e){}upProg()}
+function restoreUI(){done.forEach(s=>{const c=document.querySelector(`.stp[data-step="${s}"]`);if(c)c.classList.add('done')})}
+function upProg(){const t=document.querySelectorAll('.stp[data-step]').length,d=done.size,p=t?Math.round(d/t*100):0;document.getElementById('pbar').style.width=p+'%';document.getElementById('hD').textContent=d;document.getElementById('hT').textContent=t}
+function cp(b){const pre=b.closest('.cw').querySelector('pre');navigator.clipboard.writeText(pre.textContent).then(()=>{b.textContent='Copied!';b.classList.add('ok');setTimeout(()=>{b.textContent='Copy';b.classList.remove('ok')},1200)})}
+function cpP(c){const t=c.querySelector('.pct').textContent;navigator.clipboard.writeText(t).then(()=>{c.classList.add('cpd');const l=c.querySelector('.pcl'),o=l.textContent;l.textContent='Copied!';setTimeout(()=>{c.classList.remove('cpd');l.textContent=o},1200)})}
+function tglC(t){t.classList.toggle('open');t.nextElementSibling.classList.toggle('open')}
+function doSearch(){const q=document.getElementById('searchInput').value.toLowerCase().trim();let any=false;document.querySelectorAll('.sec').forEach(s=>{if(!q){s.style.display='';any=true;return}const m=s.textContent.toLowerCase().includes(q);s.style.display=m?'':'none';if(m)any=true});document.getElementById('nores').style.display=any?'none':'block'}
+function goTo(id){document.getElementById(id).scrollIntoView({behavior:'smooth'})}
+function setupSpy(){const secs=document.querySelectorAll('.sec'),links=document.querySelectorAll('.slink');const obs=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting){links.forEach(l=>l.classList.remove('active'));const l=document.querySelector(`.slink[data-target="${e.target.id}"]`);if(l)l.classList.add('active')}})},{rootMargin:'-60px 0px -60% 0px',threshold:0});secs.forEach(s=>obs.observe(s))}
+function setupScroll(){window.addEventListener('scroll',()=>{document.getElementById('btt').classList.toggle('vis',window.scrollY>250)},{passive:true})}
+function setupObs(){const obs=new IntersectionObserver(entries=>{entries.forEach((e,i)=>{if(e.isIntersecting){setTimeout(()=>e.target.classList.add('v'),i*30);obs.unobserve(e.target)}})},{threshold:0.04});document.querySelectorAll('.ani').forEach(el=>obs.observe(el))}
+</script>
+</body>
+</html>
